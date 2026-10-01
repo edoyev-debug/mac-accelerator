@@ -103,8 +103,7 @@ async def benchmark_mac_sequence(dut):
     dut._log.info(f"Accelerator (measured, cocotb): {accel_cycles} cycles")
     dut._log.info("Read protocol: 2 x 16-bit reads (was 3 x 8-bit reads)")
 
-    
-    
+
 @cocotb.test()
 async def benchmark_n_sweep(dut):
     """
@@ -152,8 +151,8 @@ async def benchmark_n_sweep(dut):
 async def test_custom_sequence(dut):
     """
     Feed in your own list of (a, b) pairs and watch the accumulator grow
-    after each one, using direct internal signal visibility (dut.acc) rather
-    than the READ protocol. Edit the `pairs` list below to try your own numbers.
+    after each one, using direct internal signal visibility (dut.user_project.acc)
+    rather than the READ protocol. Edit the `pairs` list below to try your own numbers.
     """
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
@@ -165,7 +164,7 @@ async def test_custom_sequence(dut):
     for a, b in pairs:
         await do_mac(dut, a, b)
         running += a * b
-        internal_acc = int(dut.acc.value)
+        internal_acc = int(dut.user_project.acc.value)
         dut._log.info(
             f"a={a:3d} b={b:3d} -> a*b={a*b:5d} | "
             f"acc (internal, live) = {internal_acc:6d} | "
@@ -175,6 +174,7 @@ async def test_custom_sequence(dut):
     final = await read_acc(dut)
     dut._log.info(f"Final result via READ protocol: {final}")
     assert final == (running & 0xFFFFFF), f"expected {running & 0xFFFFFF}, got {final}"
+
 
 @cocotb.test()
 async def test_fir_like_workload(dut):
