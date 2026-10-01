@@ -102,6 +102,8 @@ async def benchmark_mac_sequence(dut):
     dut._log.info(f"N = {N} MAC operations")
     dut._log.info(f"Accelerator (measured, cocotb): {accel_cycles} cycles")
     dut._log.info("Read protocol: 2 x 16-bit reads (was 3 x 8-bit reads)")
+
+    
     
 @cocotb.test()
 async def benchmark_n_sweep(dut):
@@ -173,3 +175,27 @@ async def test_custom_sequence(dut):
     final = await read_acc(dut)
     dut._log.info(f"Final result via READ protocol: {final}")
     assert final == (running & 0xFFFFFF), f"expected {running & 0xFFFFFF}, got {final}"
+
+@cocotb.test()
+async def test_fir_like_workload(dut):
+    """
+    A realistic MAC sequence: an 8-tap FIR filter applied to a short sample
+    window, using fixed, meaningful coefficients instead of random data -
+    the exact workload shape this accelerator is designed for.
+    """
+    cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
+    await reset(dut)
+    await send_op(dut, OP_CLR)
+
+    coeffs  = [16, 16, 16, 16, 16, 16, 16, 16]   # 8-tap moving-average FIR
+    samples = [100, 120, 90, 110, 130, 95, 105, 115]
+
+    pairs = list(zip(coeffs, samples))
+    expected = sum(c * s for c, s in pairs) & 0xFFFFFF
+
+    for c, s in pairs:
+        await do_mac(dut, c, s)
+
+    result = await read_acc(dut)
+    assert result == expected, f"expected {expected}, got {result}"
+    dut._log.info(f"8-tap FIR result: {result} (raw sum: {sum(c * s for c, s in pairs)})")
