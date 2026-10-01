@@ -140,7 +140,7 @@ async def benchmark_n_sweep(dut):
         improvement = (sw_cycles - accel_cycles) / sw_cycles * 100
         results.append((n, accel_cycles, sw_cycles, improvement))
 
-    dut._log.info("")
+    dut._log.info("---")
     dut._log.info(f"{'N':>5} | {'accel (measured)':>17} | {'sw (theoretical)':>17} | {'improvement %':>14}")
     dut._log.info("-" * 62)
     for n, acc, sw, imp in results:
@@ -151,8 +151,10 @@ async def benchmark_n_sweep(dut):
 async def test_custom_sequence(dut):
     """
     Feed in your own list of (a, b) pairs and watch the accumulator grow
-    after each one, using direct internal signal visibility (dut.user_project.acc)
-    rather than the READ protocol. Edit the `pairs` list below to try your own numbers.
+    after each one. Internal signal visibility (dut.user_project.acc) only
+    works in RTL simulation - gate-level netlists don't preserve signal
+    names after synthesis, so that part is best-effort and skipped there.
+    Correctness is always verified via the external READ protocol.
     """
     cocotb.start_soon(Clock(dut.clk, CLK_PERIOD_NS, unit="ns").start())
     await reset(dut)
@@ -164,12 +166,18 @@ async def test_custom_sequence(dut):
     for a, b in pairs:
         await do_mac(dut, a, b)
         running += a * b
-        internal_acc = int(dut.user_project.acc.value)
-        dut._log.info(
-            f"a={a:3d} b={b:3d} -> a*b={a*b:5d} | "
-            f"acc (internal, live) = {internal_acc:6d} | "
-            f"expected so far = {running & 0xFFFFFF:6d}"
-        )
+        try:
+            internal_acc = int(dut.user_project.acc.value)
+            dut._log.info(
+                f"a={a:3d} b={b:3d} -> a*b={a*b:5d} | "
+                f"acc (internal, live) = {internal_acc:6d} | "
+                f"expected so far = {running & 0xFFFFFF:6d}"
+            )
+        except AttributeError:
+            dut._log.info(
+                f"a={a:3d} b={b:3d} -> a*b={a*b:5d} | "
+                f"expected so far = {running & 0xFFFFFF:6d}"
+            )
 
     final = await read_acc(dut)
     dut._log.info(f"Final result via READ protocol: {final}")
