@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+
 `default_nettype none
 
 // MAC accelerator for TinyTapeout
@@ -123,7 +123,7 @@ module tt_um_mac_accelerator (
     assign uio_out = presenting ? present_word[15:8] : 8'd0;
     assign uio_oe  = presenting ? 8'hFF              : 8'd0;
 
-    wire _unused = &{ena, 1'b0};
+    wire _unused = &{ena, uio_in[7:3], 1'b0};
 
 endmodule
 
